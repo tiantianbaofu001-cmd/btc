@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Terminal · See Lee</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e0c;
+    --bg-2:#11161a;
+    --bg-3:#161d22;
+    --line:#1f2a30;
+    --line-soft:#172024;
+    --txt:#d4d8d2;
+    --txt-dim:#7a847e;
+    --txt-mute:#4a544e;
+    --green:#00d68f;
+    --red:#ff5470;
+    --amber:#ffb547;
+    --cyan:#5fd4ff;
+    --accent:#00d68f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:var(--bg);color:var(--txt);font-family:'Space Grotesk',sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  body{
+    background-image:
+      radial-gradient(ellipse at top left, rgba(0,214,143,0.04), transparent 50%),
+      radial-gradient(ellipse at bottom right, rgba(255,181,71,0.03), transparent 50%);
+    min-height:100vh;
+  }
+  .mono{font-family:'JetBrains Mono',monospace}
+
+  /* TOP BAR */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 24px;border-bottom:1px solid var(--line);
+    background:rgba(10,14,12,0.8);backdrop-filter:blur(10px);
+    position:sticky;top:0;z-index:100;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-mark{
+    width:32px;height:32px;border:1px solid var(--green);
+    display:grid;place-items:center;font-family:'JetBrains Mono',monospace;
+    font-weight:700;color:var(--green);position:relative;
+  }
+  .brand-mark::before{content:'';position:absolute;inset:3px;border:1px solid rgba(0,214,143,0.3)}
+  .brand-text{display:flex;flex-direction:column;line-height:1.1}
+  .brand-text strong{font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:0.15em;color:var(--txt)}
+  .brand-text span{font-size:10px;color:var(--txt-dim);letter-spacing:0.2em;text-transform:uppercase}
+
+  .clock{display:flex;align-items:center;gap:18px;font-family:'JetBrains Mono',monospace;font-size:12px}
+  .clock .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+  .clock-item{display:flex;flex-direction:column;align-items:flex-end;line-height:1.2}
+  .clock-item small{font-size:9px;color:var(--txt-mute);letter-spacing:0.15em;text-transform:uppercase}
+  .clock-item span{color:var(--txt);font-weight:500}
+
+  /* TICKER */
+  .ticker-wrap{border-bottom:1px solid var(--line);background:var(--bg-2);overflow:hidden}
+
+  /* NAV TABS */
+  .nav{
+    display:flex;gap:0;border-bottom:1px solid var(--line);
+    padding:0 24px;background:var(--bg);
+    position:sticky;top:61px;z-index:99;
+  }
+  .nav button{
+    background:none;border:none;color:var(--txt-dim);
+    padding:14px 20px;font-family:'JetBrains Mono',monospace;
+    font-size:11px;letter-spacing:0.2em;text-transform:uppercase;
+    cursor:pointer;position:relative;transition:color 0.2s;
+  }
+  .nav button:hover{color:var(--txt)}
+  .nav button.active{color:var(--green)}
+  .nav button.active::after{
+    content:'';position:absolute;bottom:-1px;left:0;right:0;
+    height:2px;background:var(--green);box-shadow:0 0 12px var(--green);
+  }
+  .nav button .num{font-size:9px;color:var(--txt-mute);margin-right:6px}
+
+  /* MAIN GRID */
+  .container{padding:20px 24px;max-width:1800px;margin:0 auto}
+  .panel{
+    background:var(--bg-2);border:1px solid var(--line);
+    margin-bottom:16px;
+  }
+  .panel-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 16px;border-bottom:1px solid var(--line);
+    background:linear-gradient(to right, var(--bg-3), var(--bg-2));
+  }
+  .panel-title{
+    display:flex;align-items:center;gap:10px;
+    font-family:'JetBrains Mono',monospace;font-size:11px;
+    letter-spacing:0.2em;text-transform:uppercase;color:var(--txt);
+  }
+  .panel-title::before{content:'';width:3px;height:14px;background:var(--green)}
+  .panel-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt-mute);letter-spacing:0.1em}
+  .panel-body{padding:0}
+
+  .grid{display:grid;gap:16px}
+  .grid-2{grid-template-columns:2fr 1fr}
+  .grid-3{grid-template-columns:1fr 1fr 1fr}
+  .grid-2-eq{grid-template-columns:1fr 1fr}
+  @media(max-width:1100px){.grid-2,.grid-3,.grid-2-eq{grid-template-columns:1fr}}
+
+  /* TAB CONTENT */
+  .tab-content{display:none}
+  .tab-content.active{display:block;animation:fadein 0.3s}
+  @keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+  /* FEAR & GREED */
+  .fng-wrap{padding:24px;text-align:center}
+  .fng-gauge{position:relative;width:180px;height:180px;margin:0 auto 16px}
+  .fng-value{
+    position:absolute;inset:0;display:grid;place-items:center;
+    font-family:'JetBrains Mono',monospace;
+  }
+  .fng-value .num{font-size:48px;font-weight:700;line-height:1;color:var(--amber)}
+  .fng-value .label{font-size:10px;color:var(--txt-dim);letter-spacing:0.2em;text-transform:uppercase;margin-top:6px}
+  .fng-status{font-size:13px;color:var(--txt);font-weight:500;letter-spacing:0.05em}
+  .fng-history{display:flex;justify-content:space-between;margin-top:20px;padding:16px;border-top:1px solid var(--line-soft);font-family:'JetBrains Mono',monospace;font-size:11px}
+  .fng-history div{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .fng-history small{color:var(--txt-mute);font-size:9px;letter-spacing:0.1em;text-transform:uppercase}
+
+  /* NOTES */
+  .notes-toolbar{display:flex;gap:8px;padding:12px 16px;border-bottom:1px solid var(--line-soft);background:var(--bg-3)}
+  .notes-toolbar button{
+    background:transparent;border:1px solid var(--line);color:var(--txt-dim);
+    padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;
+    letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;transition:all 0.2s;
+  }
+  .notes-toolbar button:hover{border-color:var(--green);color:var(--green)}
+  .notes-toolbar button.primary{background:var(--green);color:var(--bg);border-color:var(--green)}
+  .notes-toolbar button.primary:hover{background:transparent;color:var(--green)}
+  .notes-list{max-height:300px;overflow-y:auto;border-bottom:1px solid var(--line-soft)}
+  .note-item{
+    padding:12px 16px;border-bottom:1px solid var(--line-soft);
+    cursor:pointer;transition:background 0.15s;
+  }
+  .note-item:hover{background:var(--bg-3)}
+  .note-item.active{background:var(--bg-3);border-left:2px solid var(--green)}
+  .note-item-title{font-weight:500;color:var(--txt);margin-bottom:4px;font-size:13px}
+  .note-item-meta{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt-mute)}
+  .note-editor{padding:16px;display:flex;flex-direction:column;gap:10px}
+  .note-editor input,.note-editor textarea{
+    background:var(--bg);border:1px solid var(--line);color:var(--txt);
+    padding:10px 12px;font-family:'Space Grotesk',sans-serif;font-size:13px;
+    outline:none;transition:border-color 0.2s;resize:vertical;
+  }
+  .note-editor input:focus,.note-editor textarea:focus{border-color:var(--green)}
+  .note-editor textarea{min-height:200px;font-family:'JetBrains Mono',monospace;line-height:1.6}
+  .empty-state{padding:40px 16px;text-align:center;color:var(--txt-mute);font-size:12px}
+
+  /* INDICATOR LEARNING */
+  .ind-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;padding:16px}
+  .ind-card{
+    background:var(--bg-3);border:1px solid var(--line);padding:16px;
+    cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;
+  }
+  .ind-card::before{
+    content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+    background:var(--green);transform:scaleY(0);transform-origin:top;transition:transform 0.3s;
+  }
+  .ind-card:hover{border-color:var(--green);background:var(--bg-2)}
+  .ind-card:hover::before{transform:scaleY(1)}
+  .ind-card .cat{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.2em;color:var(--amber);text-transform:uppercase}
+  .ind-card .name{font-size:18px;font-weight:600;margin:6px 0;color:var(--txt)}
+  .ind-card .desc{font-size:12px;color:var(--txt-dim);line-height:1.5}
+  .ind-card .more{
+    margin-top:10px;font-family:'JetBrains Mono',monospace;font-size:10px;
+    color:var(--green);letter-spacing:0.1em;text-transform:uppercase;
+  }
+
+  /* MODAL */
+  .modal-bg{
+    position:fixed;inset:0;background:rgba(5,8,7,0.9);z-index:1000;
+    display:none;align-items:center;justify-content:center;padding:20px;
+    backdrop-filter:blur(6px);
+  }
+  .modal-bg.show{display:flex}
+  .modal{
+    background:var(--bg-2);border:1px solid var(--green);max-width:700px;width:100%;
+    max-height:85vh;overflow-y:auto;
+  }
+  .modal-head{
+    padding:16px 20px;border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:center;
+    background:linear-gradient(to right, var(--bg-3), var(--bg-2));
+  }
+  .modal-head h3{font-size:18px;color:var(--green);font-weight:600}
+  .modal-close{
+    background:none;border:1px solid var(--line);color:var(--txt-dim);
+    width:28px;height:28px;cursor:pointer;font-family:'JetBrains Mono',monospace;
+  }
+  .modal-close:hover{border-color:var(--red);color:var(--red)}
+  .modal-body{padding:20px}
+  .modal-body h4{color:var(--amber);margin-top:16px;margin-bottom:8px;font-size:13px;letter-spacing:0.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace}
+  .modal-body h4:first-child{margin-top:0}
+  .modal-body p{margin-bottom:10px;color:var(--txt);line-height:1.7;font-size:13px}
+  .modal-body ul{margin-left:20px;margin-bottom:10px}
+  .modal-body li{margin-bottom:6px;color:var(--txt);line-height:1.6;font-size:13px}
+  .modal-body code{background:var(--bg);padding:2px 6px;font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--cyan);border:1px solid var(--line)}
+
+  /* IFRAME WRAPPERS */
+  .iframe-wrap{position:relative;width:100%;background:var(--bg-3)}
+  .iframe-wrap iframe{display:block;width:100%;border:0}
+
+  /* NEWS */
+  .news-list{padding:0}
+  .news-item{
+    padding:14px 16px;border-bottom:1px solid var(--line-soft);
+    display:flex;gap:12px;transition:background 0.15s;
+  }
+  .news-item:hover{background:var(--bg-3)}
+  .news-time{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt-mute);min-width:50px;padding-top:2px}
+  .news-content{flex:1}
+  .news-title{font-size:13px;color:var(--txt);line-height:1.5;margin-bottom:4px}
+  .news-source{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green);letter-spacing:0.1em;text-transform:uppercase}
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:var(--bg)}
+  ::-webkit-scrollbar-thumb{background:var(--line);border-radius:0}
+  ::-webkit-scrollbar-thumb:hover{background:var(--txt-mute)}
+
+  /* FOOTER */
+  .footer{
+    padding:24px;border-top:1px solid var(--line);text-align:center;
+    font-family:'JetBrains Mono',monospace;font-size:10px;
+    color:var(--txt-mute);letter-spacing:0.15em;text-transform:uppercase;margin-top:32px;
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">SL</div>
+    <div class="brand-text">
+      <strong>TRADING TERMINAL</strong>
+      <span>Crypto Futures · Personal Desk</span>
+    </div>
+  </div>
+  <div class="clock">
+    <div class="dot"></div>
+    <div class="clock-item"><small>NYC</small><span id="time-ny">—</span></div>
+    <div class="clock-item"><small>TKY</small><span id="time-tk">—</span></div>
+    <div class="clock-item"><small>SGT</small><span id="time-sg">—</span></div>
+    <div class="clock-item"><small>UTC</small><span id="time-utc">—</span></div>
+  </div>
+</header>
+
+<!-- TICKER -->
+<div class="ticker-wrap">
+  <iframe scrolling="no" allowtransparency="true" frameborder="0"
+    src="https://www.tradingview-widget.com/embed-widget/ticker-tape/?locale=zh_CN#%7B%22symbols%22%3A%5B%7B%22proName%22%3A%22BINANCE%3ABTCUSDT.P%22%2C%22title%22%3A%22BTC%22%7D%2C%7B%22proName%22%3A%22BINANCE%3AETHUSDT.P%22%2C%22title%22%3A%22ETH%22%7D%2C%7B%22proName%22%3A%22BINANCE%3ASOLUSDT.P%22%2C%22title%22%3A%22SOL%22%7D%2C%7B%22proName%22%3A%22BINANCE%3ABNBUSDT.P%22%2C%22title%22%3A%22BNB%22%7D%2C%7B%22proName%22%3A%22BINANCE%3AXRPUSDT.P%22%2C%22title%22%3A%22XRP%22%7D%2C%7B%22proName%22%3A%22BINANCE%3ADOGEUSDT.P%22%2C%22title%22%3A%22DOGE%22%7D%2C%7B%22proName%22%3A%22BINANCE%3ALINKUSDT.P%22%2C%22title%22%3A%22LINK%22%7D%2C%7B%22proName%22%3A%22BINANCE%3AAVAXUSDT.P%22%2C%22title%22%3A%22AVAX%22%7D%2C%7B%22proName%22%3A%22BINANCE%3AARBUSDT.P%22%2C%22title%22%3A%22ARB%22%7D%2C%7B%22proName%22%3A%22BINANCE%3ANEARUSDT.P%22%2C%22title%22%3A%22NEAR%22%7D%2C%7B%22proName%22%3A%22BINANCE%3ASUIUSDT.P%22%2C%22title%22%3A%22SUI%22%7D%5D%2C%22showSymbolLogo%22%3Atrue%2C%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Atrue%2C%22displayMode%22%3A%22adaptive%22%7D"
+    style="width:100%;height:46px"></iframe>
+</div>
+
+<!-- NAV -->
+<nav class="nav">
+  <button class="active" data-tab="market"><span class="num">01</span>MARKET</button>
+  <button data-tab="news"><span class="num">02</span>NEWS · CALENDAR</button>
+  <button data-tab="sentiment"><span class="num">03</span>SENTIMENT</button>
+  <button data-tab="learn"><span class="num">04</span>INDICATORS</button>
+  <button data-tab="notes"><span class="num">05</span>JOURNAL</button>
+</nav>
+
+<main class="container">
+
+  <!-- TAB 1: MARKET -->
+  <div class="tab-content active" id="tab-market">
+    <div class="grid grid-2">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">BTC/USDT.P · ADVANCED CHART</div>
+          <div class="panel-meta">BINANCE PERPETUAL</div>
+        </div>
+        <div class="iframe-wrap">
+          <iframe id="main-chart" style="height:560px"
+            src="https://www.tradingview-widget.com/embed-widget/advanced-chart/?locale=zh_CN#%7B%22symbol%22%3A%22BINANCE%3ABTCUSDT.P%22%2C%22interval%22%3A%22240%22%2C%22theme%22%3A%22dark%22%2C%22style%22%3A%221%22%2C%22hide_side_toolbar%22%3Afalse%2C%22allow_symbol_change%22%3Atrue%2C%22studies%22%3A%5B%22STD%3BMA%2520Cross%22%2C%22STD%3BRSI%22%5D%2C%22save_image%22%3Afalse%2C%22enable_publishing%22%3Afalse%2C%22hide_top_toolbar%22%3Afalse%2C%22hide_legend%22%3Afalse%2C%22backgroundColor%22%3A%22%2311161a%22%2C%22gridColor%22%3A%22rgba(31%2C42%2C48%2C0.4)%22%7D"></iframe>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">CRYPTO HEATMAP</div>
+            <div class="panel-meta">TOP 100 · 24H</div>
+          </div>
+          <div class="iframe-wrap">
+            <iframe style="height:280px"
+              src="https://www.tradingview-widget.com/embed-widget/crypto-coins-heatmap/?locale=zh_CN#%7B%22dataSource%22%3A%22Crypto%22%2C%22blockSize%22%3A%22market_cap_calc%22%2C%22blockColor%22%3A%22change%22%2C%22colorTheme%22%3A%22dark%22%2C%22hasTopBar%22%3Afalse%2C%22isDataSetEnabled%22%3Afalse%2C%22isZoomEnabled%22%3Atrue%2C%22hasSymbolTooltip%22%3Atrue%2C%22isTransparent%22%3Atrue%7D"></iframe>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <div class="panel-title">BTC DOMINANCE</div>
+            <div class="panel-meta">CRYPTO MARKET CAP</div>
+          </div>
+          <div class="iframe-wrap">
+            <iframe style="height:260px"
+              src="https://www.tradingview-widget.com/embed-widget/mini-symbol-overview/?locale=zh_CN#%7B%22symbol%22%3A%22CRYPTOCAP%3ABTC.D%22%2C%22dateRange%22%3A%221M%22%2C%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Atrue%2C%22autosize%22%3Atrue%2C%22largeChartUrl%22%3A%22%22%7D"></iframe>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-3">
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">ETH/USDT.P</div><div class="panel-meta">4H</div></div>
+        <div class="iframe-wrap">
+          <iframe style="height:240px"
+            src="https://www.tradingview-widget.com/embed-widget/mini-symbol-overview/?locale=zh_CN#%7B%22symbol%22%3A%22BINANCE%3AETHUSDT.P%22%2C%22dateRange%22%3A%221W%22%2C%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Atrue%2C%22autosize%22%3Atrue%7D"></iframe>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">SOL/USDT.P</div><div class="panel-meta">4H</div></div>
+        <div class="iframe-wrap">
+          <iframe style="height:240px"
+            src="https://www.tradingview-widget.com/embed-widget/mini-symbol-overview/?locale=zh_CN#%7B%22symbol%22%3A%22BINANCE%3ASOLUSDT.P%22%2C%22dateRange%22%3A%221W%22%2C%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Atrue%2C%22autosize%22%3Atrue%7D"></iframe>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">DXY · 美元指数</div><div class="panel-meta">MACRO</div></div>
+        <div class="iframe-wrap">
+          <iframe style="height:240px"
+            src="https://www.tradingview-widget.com/embed-widget/mini-symbol-overview/?locale=zh_CN#%7B%22symbol%22%3A%22TVC%3ADXY%22%2C%22dateRange%22%3A%221M%22%2C%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Atrue%2C%22autosize%22%3Atrue%7D"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">SCREENER · TOP MOVERS</div>
+        <div class="panel-meta">CRYPTO PERPETUAL</div>
+      </div>
+      <div class="iframe-wrap">
+        <iframe style="height:490px"
+          src="https://www.tradingview-widget.com/embed-widget/screener/?locale=zh_CN#%7B%22market%22%3A%22crypto%22%2C%22showToolbar%22%3Atrue%2C%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Atrue%2C%22defaultColumn%22%3A%22moving_averages%22%2C%22defaultScreen%22%3A%22general%22%7D"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: NEWS & CALENDAR -->
+  <div class="tab-content" id="tab-news">
+    <div class="grid grid-2-eq">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">CRYPTO NEWS · LIVE</div>
+          <div class="panel-meta" id="news-updated">LOADING...</div>
+        </div>
+        <div class="news-list" id="news-list">
+          <div class="empty-state">Fetching latest news...</div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">ECONOMIC CALENDAR</div>
+          <div class="panel-meta">HIGH IMPACT EVENTS</div>
+        </div>
+        <div class="iframe-wrap">
+          <iframe style="height:680px"
+            src="https://sslecal2.investing.com?columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous&category=_employment,_economicActivity,_inflation,_credit,_centralBanks,_confidenceIndex,_balance,_Bonds&importance=2,3&features=datepicker,timezone&countries=5&calType=week&timeZone=88&lang=56"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">FOREX MAJORS · MACRO REFERENCE</div>
+        <div class="panel-meta">USD INDEX · YIELDS · GOLD</div>
+      </div>
+      <div class="iframe-wrap">
+        <iframe style="height:400px"
+          src="https://www.tradingview-widget.com/embed-widget/market-overview/?locale=zh_CN#%7B%22colorTheme%22%3A%22dark%22%2C%22dateRange%22%3A%2212M%22%2C%22showChart%22%3Atrue%2C%22width%22%3A%22100%25%22%2C%22height%22%3A400%2C%22largeChartUrl%22%3A%22%22%2C%22isTransparent%22%3Atrue%2C%22showSymbolLogo%22%3Atrue%2C%22tabs%22%3A%5B%7B%22title%22%3A%22Macro%22%2C%22symbols%22%3A%5B%7B%22s%22%3A%22TVC%3ADXY%22%2C%22d%22%3A%22DXY%22%7D%2C%7B%22s%22%3A%22TVC%3AGOLD%22%2C%22d%22%3A%22GOLD%22%7D%2C%7B%22s%22%3A%22TVC%3AUS10Y%22%2C%22d%22%3A%22US10Y%22%7D%2C%7B%22s%22%3A%22TVC%3AVIX%22%2C%22d%22%3A%22VIX%22%7D%2C%7B%22s%22%3A%22NASDAQ%3ANDX%22%2C%22d%22%3A%22NASDAQ%22%7D%5D%7D%2C%7B%22title%22%3A%22Crypto%22%2C%22symbols%22%3A%5B%7B%22s%22%3A%22BINANCE%3ABTCUSDT.P%22%7D%2C%7B%22s%22%3A%22BINANCE%3AETHUSDT.P%22%7D%2C%7B%22s%22%3A%22CRYPTOCAP%3ATOTAL%22%2C%22d%22%3A%22Total%20Mcap%22%7D%2C%7B%22s%22%3A%22CRYPTOCAP%3ABTC.D%22%2C%22d%22%3A%22BTC.D%22%7D%5D%7D%5D%7D"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: SENTIMENT -->
+  <div class="tab-content" id="tab-sentiment">
+    <div class="grid grid-3">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">FEAR &amp; GREED</div>
+          <div class="panel-meta">CRYPTO MARKET</div>
+        </div>
+        <div class="fng-wrap" id="fng-wrap">
+          <div class="fng-gauge">
+            <svg viewBox="0 0 200 200" width="180" height="180">
+              <circle cx="100" cy="100" r="85" fill="none" stroke="#1f2a30" stroke-width="14"/>
+              <circle id="fng-arc" cx="100" cy="100" r="85" fill="none" stroke="var(--amber)" stroke-width="14"
+                      stroke-dasharray="0 1000" stroke-dashoffset="0" transform="rotate(-90 100 100)"
+                      stroke-linecap="round" style="transition:stroke-dasharray 1s ease,stroke 1s"/>
+            </svg>
+            <div class="fng-value">
+              <div class="num" id="fng-num">--</div>
+              <div class="label">INDEX</div>
+            </div>
+          </div>
+          <div class="fng-status" id="fng-status">Loading...</div>
+          <div class="fng-history">
+            <div><small>YESTERDAY</small><span id="fng-y">--</span></div>
+            <div><small>LAST WEEK</small><span id="fng-w">--</span></div>
+            <div><small>LAST MONTH</small><span id="fng-m">--</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">BTC LONG/SHORT</div>
+          <div class="panel-meta">BINANCE FUTURES</div>
+        </div>
+        <div class="iframe-wrap">
+          <iframe style="height:340px"
+            src="https://www.coinglass.com/zh/LongShortRatio" sandbox="allow-same-origin allow-scripts" loading="lazy"></iframe>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">VIX · 恐慌指数</div>
+          <div class="panel-meta">TRADITIONAL MARKET</div>
+        </div>
+        <div class="iframe-wrap">
+          <iframe style="height:340px"
+            src="https://www.tradingview-widget.com/embed-widget/symbol-overview/?locale=zh_CN#%7B%22symbols%22%3A%5B%5B%22VIX%22%2C%22TVC%3AVIX%7C1Y%22%5D%5D%2C%22chartOnly%22%3Afalse%2C%22colorTheme%22%3A%22dark%22%2C%22isTransparent%22%3Atrue%2C%22autosize%22%3Atrue%2C%22showVolume%22%3Afalse%2C%22hideDateRanges%22%3Afalse%2C%22scalePosition%22%3A%22right%22%2C%22scaleMode%22%3A%22Normal%22%2C%22fontFamily%22%3A%22JetBrains%20Mono%22%2C%22fontSize%22%3A%2210%22%2C%22noTimeScale%22%3Afalse%2C%22valuesTracking%22%3A%221%22%2C%22changeMode%22%3A%22price-and-percent%22%2C%22chartType%22%3A%22area%22%7D"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">FUNDING RATES &amp; OPEN INTEREST</div>
+        <div class="panel-meta">COINGLASS · ALL EXCHANGES</div>
+      </div>
+      <div class="iframe-wrap">
+        <iframe style="height:600px" loading="lazy"
+          src="https://www.coinglass.com/zh/FundingRate"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 4: INDICATORS LEARN -->
+  <div class="tab-content" id="tab-learn">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">TECHNICAL INDICATORS · LEARNING DESK</div>
+        <div class="panel-meta">CLICK CARD TO READ</div>
+      </div>
+      <div class="ind-grid" id="ind-grid"></div>
+    </div>
+  </div>
+
+  <!-- TAB 5: NOTES -->
+  <div class="tab-content" id="tab-notes">
+    <div class="panel">
+      <div class="panel-head">
+        <div class="panel-title">TRADING JOURNAL</div>
+        <div class="panel-meta" id="notes-count">0 ENTRIES · LOCAL STORAGE</div>
+      </div>
+      <div class="notes-toolbar">
+        <button class="primary" onclick="newNote()">+ NEW ENTRY</button>
+        <button onclick="exportNotes()">↓ EXPORT JSON</button>
+        <button onclick="importNotes()">↑ IMPORT</button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="handleImport(event)">
+      </div>
+      <div class="grid grid-2">
+        <div class="notes-list" id="notes-list" style="max-height:600px"></div>
+        <div class="note-editor">
+          <input type="text" id="note-title" placeholder="标题（如：BTC 4H 突破观察）" oninput="autosave()">
+          <textarea id="note-body" placeholder="在此记录交易计划、复盘、学习心得...&#10;&#10;支持多行文本，自动保存到本地浏览器。" oninput="autosave()"></textarea>
+          <div style="display:flex;gap:8px;justify-content:space-between;align-items:center">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--txt-mute)" id="save-status">未编辑</span>
+            <button onclick="deleteNote()" style="background:transparent;border:1px solid var(--line);color:var(--red);padding:6px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.15em;cursor:pointer">DELETE</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- INDICATOR MODAL -->
+<div class="modal-bg" id="modal-bg" onclick="if(event.target===this)closeModal()">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="modal-title">—</h3>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<footer class="footer">
+  © PERSONAL TERMINAL · BUILT FOR SEE LEE · 数据来源 TRADINGVIEW · BINANCE · COINGLASS · ALTERNATIVE.ME
+</footer>
+
+<script>
+/* ============ CLOCKS ============ */
+function pad(n){return String(n).padStart(2,'0')}
+function updateClocks(){
+  const fmt = tz => {
+    const d = new Date().toLocaleString('en-US',{timeZone:tz,hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    return d;
+  };
+  document.getElementById('time-ny').textContent = fmt('America/New_York');
+  document.getElementById('time-tk').textContent = fmt('Asia/Tokyo');
+  document.getElementById('time-sg').textContent = fmt('Asia/Singapore');
+  const u=new Date();
+  document.getElementById('time-utc').textContent = `${pad(u.getUTCHours())}:${pad(u.getUTCMinutes())}:${pad(u.getUTCSeconds())}`;
+}
+updateClocks();setInterval(updateClocks,1000);
+
+/* ============ TABS ============ */
+document.querySelectorAll('.nav button').forEach(btn=>{
+  btn.onclick = ()=>{
+    document.querySelectorAll('.nav button').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-'+btn.dataset.tab).classList.add('active');
+  };
+});
+
+/* ============ FEAR & GREED ============ */
+async function loadFNG(){
+  try{
+    const r = await fetch('https://api.alternative.me/fng/?limit=31');
+    const d = await r.json();
+    const today = d.data[0], y = d.data[1], w = d.data[7], m = d.data[30];
+    const v = parseInt(today.value);
+    document.getElementById('fng-num').textContent = v;
+    document.getElementById('fng-status').textContent = today.value_classification;
+    const colors = {'Extreme Fear':'#ff5470','Fear':'#ff8a47','Neutral':'#ffb547','Greed':'#9bd454','Extreme Greed':'#00d68f'};
+    const color = colors[today.value_classification] || '#ffb547';
+    document.getElementById('fng-num').style.color = color;
+    const arc = document.getElementById('fng-arc');
+    const circ = 2 * Math.PI * 85;
+    arc.style.strokeDasharray = `${(v/100)*circ} ${circ}`;
+    arc.style.stroke = color;
+    document.getElementById('fng-y').textContent = y.value;
+    document.getElementById('fng-w').textContent = w.value;
+    document.getElementById('fng-m').textContent = m.value;
+  }catch(e){
+    document.getElementById('fng-status').textContent = 'API unavailable';
+  }
+}
+loadFNG();
+
+/* ============ NEWS (CryptoPanic public RSS via rss2json) ============ */
+async function loadNews(){
+  try{
+    const url = 'https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent('https://cointelegraph.com/rss');
+    const r = await fetch(url);
+    const d = await r.json();
+    const list = document.getElementById('news-list');
+    if(!d.items || !d.items.length){list.innerHTML='<div class="empty-state">No news available</div>';return}
+    list.innerHTML = d.items.slice(0,15).map(it=>{
+      const t = new Date(it.pubDate);
+      const hh = pad(t.getHours()), mm = pad(t.getMinutes());
+      return `<div class="news-item" onclick="window.open('${it.link}','_blank')" style="cursor:pointer">
+        <div class="news-time">${hh}:${mm}</div>
+        <div class="news-content">
+          <div class="news-title">${it.title}</div>
+          <div class="news-source">COINTELEGRAPH</div>
+        </div>
+      </div>`;
+    }).join('');
+    const now = new Date();
+    document.getElementById('news-updated').textContent = `UPDATED ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  }catch(e){
+    document.getElementById('news-list').innerHTML = '<div class="empty-state">News feed unavailable. Try refreshing.</div>';
+  }
+}
+loadNews();
+setInterval(loadNews, 5*60*1000);
+
+/* ============ INDICATORS LIBRARY ============ */
+const INDICATORS = [
+  {cat:'趋势', name:'移动平均线 MA/EMA', short:'最基础的趋势识别工具，平滑价格波动揭示方向',
+   detail:`<h4>核心概念</h4><p>简单移动平均（SMA）是过去 N 个周期收盘价的算术平均；指数移动平均（EMA）对近期价格赋予更高权重，反应更快。</p>
+   <h4>常用周期</h4><ul><li><code>EMA 20</code> — 短期趋势，常作为日内/4H动态支撑阻力</li><li><code>EMA 50</code> — 中期趋势分水岭</li><li><code>SMA 200</code> — 牛熊分界，机构最看重的长期均线</li></ul>
+   <h4>实战用法</h4><ul><li><strong>金叉/死叉</strong>：短期均线上穿/下穿长期均线，趋势反转信号</li><li><strong>均线扇形排列</strong>：多头排列（短>中>长）→ 强势趋势</li><li><strong>回踩确认</strong>：上涨趋势中价格回踩 EMA 20/50 不破，是低风险加仓点</li></ul>
+   <h4>陷阱</h4><p>盘整市中均线频繁交叉会产生大量假信号。需结合 ADX 等趋势强度指标过滤。</p>`},
+
+  {cat:'趋势', name:'MACD', short:'均线衍生指标，捕捉趋势转折和动能变化',
+   detail:`<h4>构成</h4><p>MACD 线 = EMA12 - EMA26；信号线 = MACD 的 EMA9；柱状图 = MACD - 信号线。</p>
+   <h4>三种信号</h4><ul><li><strong>金叉/死叉</strong>：MACD 上穿/下穿信号线</li><li><strong>零轴穿越</strong>：MACD 上穿零轴 = 多头市场启动</li><li><strong>背离</strong>：价格新高但 MACD 没新高 → 顶背离（看跌警告）；反之底背离</li></ul>
+   <h4>多周期共振</h4><p>4H MACD 金叉 + 日线 MACD 多头 = 高胜率信号。单周期使用容易被洗。</p>
+   <h4>陷阱</h4><p>MACD 是滞后指标，剧烈拉升/暴跌的尾声给出信号反而是反向陷阱。</p>`},
+
+  {cat:'动量', name:'RSI 相对强弱指数', short:'0-100 区间衡量超买超卖与动能强度',
+   detail:`<h4>读法</h4><ul><li><code>RSI > 70</code> 超买区</li><li><code>RSI < 30</code> 超卖区</li><li><code>50</code> 多空分水岭</li></ul>
+   <h4>关键技巧</h4><p><strong>趋势市不要简单做反转</strong>：强势上涨中 RSI 长期在 60-90 区间，跌到 40 反而是买点。RSI 超买不等于卖出信号。</p>
+   <h4>背离</h4><ul><li><strong>顶背离</strong>：价格创新高，RSI 没创新高 → 上涨动能衰竭</li><li><strong>底背离</strong>：价格创新低，RSI 没创新低 → 下跌动能衰竭</li></ul>
+   <h4>RSI 中位线策略</h4><p>趋势确认后，RSI 回踩 50 不破继续向上 = 健康回调，是加仓信号。</p>`},
+
+  {cat:'动量', name:'随机指标 Stochastic', short:'对短期价格位置敏感，适合震荡市',
+   detail:`<h4>原理</h4><p>计算当前收盘价在最近 N 周期高低区间中的相对位置。%K 是快线，%D 是 %K 的 3 周期均线。</p>
+   <h4>信号</h4><ul><li><code>>80</code> 超买，<code><20</code> 超卖</li><li>%K 上穿 %D = 买入信号</li><li>背离信号同 RSI</li></ul>
+   <h4>使用场景</h4><p>震荡市效果远优于趋势市。趋势强烈时随机指标会长期钝化在超买/超卖区。</p>
+   <h4>变体</h4><p>Stochastic RSI = 对 RSI 再做随机计算，灵敏度更高，假信号也更多。</p>`},
+
+  {cat:'波动率', name:'布林带 Bollinger Bands', short:'中轨 + 2 倍标准差通道，衡量波动率',
+   detail:`<h4>构成</h4><p>中轨 = SMA20；上下轨 = SMA20 ± 2 × 20 周期标准差。约 95% 价格运行在通道内。</p>
+   <h4>实战</h4><ul><li><strong>收口（Squeeze）</strong>：通道急剧收窄 → 波动率压缩，即将爆发，方向待定</li><li><strong>开口</strong>：扩张方向就是趋势方向</li><li><strong>沿轨运行</strong>：强势趋势中价格会沿上轨/下轨持续运行，不要盲目反向</li></ul>
+   <h4>%B 和带宽</h4><p>%B = (价格 - 下轨) / (上轨 - 下轨)；带宽 = (上轨 - 下轨) / 中轨。两者数值化便于回测。</p>`},
+
+  {cat:'波动率', name:'ATR 平均真实波幅', short:'测量市场波动幅度，是止损和仓位管理的核心',
+   detail:`<h4>本质</h4><p>ATR 不显示方向，只测量"波动幅度"。N 周期的真实波幅平均值，常用 14 周期。</p>
+   <h4>实战应用</h4><ul><li><strong>止损设置</strong>：入场价 ± 1.5 × ATR 或 2 × ATR，比固定百分比更适配品种波动性</li><li><strong>仓位计算</strong>：仓位 = 风险金额 / (ATR × 止损倍数)，让每笔交易风险一致</li><li><strong>波动率匹配</strong>：选币时挑选 ATR 与你交易风格匹配的标的——ATR 太低单子打不开，太高难以管理</li></ul>
+   <h4>记忆点</h4><p>专业交易员看 ATR 比看价格更频繁。ATR 决定你"能赔多少"和"该开多大"。</p>`},
+
+  {cat:'成交量', name:'成交量 + OBV', short:'价格背后的真实力量，判断趋势可信度',
+   detail:`<h4>核心原则</h4><p>价格上涨 + 成交量放大 = 健康趋势；价格上涨 + 成交量萎缩 = 趋势可疑。</p>
+   <h4>OBV 能量潮</h4><p>累积成交量指标：上涨日 + 当日成交量，下跌日 - 当日成交量。OBV 与价格背离 = 资金面与价格面分歧。</p>
+   <h4>关键场景</h4><ul><li><strong>突破确认</strong>：突破关键阻力但成交量没放大 → 假突破概率高</li><li><strong>顶部派发</strong>：高位横盘，成交量持续偏大 → 主力可能在出货</li><li><strong>底部吸筹</strong>：低位价格不跌但成交量偶尔异常放大 → 资金进场</li></ul>
+   <h4>加密市场特别注意</h4><p>币安永续的成交量比现货更能反映杠杆资金动向，对短线判断更有效。</p>`},
+
+  {cat:'结构', name:'支撑/阻力 + 趋势线', short:'最朴素也最有效的工具，市场结构的骨架',
+   detail:`<h4>识别方法</h4><ul><li><strong>水平位</strong>：多次反弹/被压制的价位，被测试次数越多越重要</li><li><strong>趋势线</strong>：连接 2 个以上低点（上升）或高点（下降）画出</li><li><strong>整数关口</strong>：BTC 100000、ETH 4000 这类心理价位天然有效</li></ul>
+   <h4>使用原则</h4><ul><li>支撑被有效跌破后会变成阻力（角色转换）</li><li>越大周期的支撑阻力越有效——周线 > 日线 > 4H</li><li>不要把支撑阻力当作精确点位，应当作"区域"</li></ul>
+   <h4>实战警示</h4><p>关键支撑前的"假突破"是机构常用手法——价格短暂跌破立刻拉回，目的是触发止损吃单。设止损时给关键位置留出 ATR 倍数缓冲。</p>`},
+
+  {cat:'结构', name:'斐波那契回撤', short:'识别趋势中回调的潜在支撑/阻力位',
+   detail:`<h4>关键比例</h4><ul><li><code>0.382</code> — 浅回调，强趋势中常见</li><li><code>0.5</code> — 中性，最常见的回调位</li><li><code>0.618</code> — 黄金分割位，最重要的回调位</li><li><code>0.786</code> — 深回调，多头最后防线</li></ul>
+   <h4>用法</h4><p>在主要上涨段从低点向高点拉斐波，回调到 0.5-0.618 区间且配合其他信号（如 RSI 回到 50、EMA50 支撑）= 高胜率买点。</p>
+   <h4>扩展位</h4><p>1.272、1.618 用于预测突破后的目标位。</p>
+   <h4>陷阱</h4><p>只在明确趋势中使用。震荡市中斐波回撤经常失效。</p>`},
+
+  {cat:'加密专属', name:'资金费率 Funding Rate', short:'永续合约多空成本，反映市场情绪极端值',
+   detail:`<h4>原理</h4><p>币安永续每 8 小时结算一次资金费率。正费率：多头付给空头；负费率：空头付给多头。机制目的是让永续价格锚定现货。</p>
+   <h4>解读</h4><ul><li><strong>费率 > 0.05%/8h</strong>：多头过热，回调风险增大</li><li><strong>费率 < -0.03%/8h</strong>：空头过度，反弹概率高</li><li><strong>持续高费率</strong>：杠杆多头堆积，一旦下跌容易引发踩踏</li></ul>
+   <h4>实战</h4><p>资金费率是反向指标——极端正费率时择机做空/止盈，极端负费率时择机做多/抄底。配合爆仓数据使用更有效。</p>
+   <h4>查看渠道</h4><p>Coinglass、币安官方 API、TradingView 自定义脚本都可以监控。</p>`},
+
+  {cat:'加密专属', name:'未平仓合约 Open Interest', short:'衡量市场参与度和资金流入流出',
+   detail:`<h4>定义</h4><p>OI = 当前未平仓的合约总数。新合约开立 OI 增加，平仓 OI 减少。</p>
+   <h4>价量 OI 三维分析</h4><ul><li><strong>价涨 + OI 增</strong>：新多头入场，趋势健康</li><li><strong>价涨 + OI 减</strong>：空头平仓推动，上涨乏力</li><li><strong>价跌 + OI 增</strong>：新空头入场，下跌动能强</li><li><strong>价跌 + OI 减</strong>：多头止损平仓，下跌可能接近尾声</li></ul>
+   <h4>极端 OI</h4><p>OI 创历史新高时市场杠杆水平极高，黑天鹅事件下容易引发连环爆仓。</p>`},
+
+  {cat:'加密专属', name:'BTC 主导率 BTC.D', short:'判断山寨季节的关键宏观指标',
+   detail:`<h4>定义</h4><p>BTC.D = BTC 市值 / 加密总市值。常用区间 40%-65%。</p>
+   <h4>四象限</h4><ul><li><strong>BTC 涨 + BTC.D 涨</strong>：BTC 强势期，资金从山寨流向 BTC</li><li><strong>BTC 涨 + BTC.D 跌</strong>：山寨季节，山寨涨幅 > BTC</li><li><strong>BTC 跌 + BTC.D 涨</strong>：避险模式，资金离开山寨保 BTC</li><li><strong>BTC 跌 + BTC.D 跌</strong>：全面熊市</li></ul>
+   <h4>资金轮动逻辑</h4><p>典型牛市路径：BTC 先涨 → ETH 跟涨 → 主流山寨 → 中小山寨 → 散户进场 meme 币 → BTC.D 见底 → 派发开始。</p>`}
+];
+
+function renderIndicators(){
+  const grid = document.getElementById('ind-grid');
+  grid.innerHTML = INDICATORS.map((it,i)=>`
+    <div class="ind-card" onclick="openIndicator(${i})">
+      <div class="cat">${it.cat}</div>
+      <div class="name">${it.name}</div>
+      <div class="desc">${it.short}</div>
+      <div class="more">READ →</div>
+    </div>`).join('');
+}
+renderIndicators();
+
+function openIndicator(i){
+  const it = INDICATORS[i];
+  document.getElementById('modal-title').textContent = it.name;
+  document.getElementById('modal-body').innerHTML = it.detail;
+  document.getElementById('modal-bg').classList.add('show');
+}
+function closeModal(){document.getElementById('modal-bg').classList.remove('show')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+
+/* ============ NOTES (LocalStorage) ============ */
+const NOTES_KEY = 'see_lee_trading_notes_v1';
+let notes = [];
+let currentId = null;
+let saveTimer = null;
+
+function loadNotes(){
+  try{notes = JSON.parse(localStorage.getItem(NOTES_KEY)||'[]')}catch{notes=[]}
+  renderNotesList();
+}
+function saveNotes(){localStorage.setItem(NOTES_KEY, JSON.stringify(notes))}
+
+function renderNotesList(){
+  const list = document.getElementById('notes-list');
+  document.getElementById('notes-count').textContent = `${notes.length} ENTRIES · LOCAL STORAGE`;
+  if(!notes.length){
+    list.innerHTML = '<div class="empty-state">还没有笔记。点击 "+ NEW ENTRY" 开始。</div>';
+    return;
+  }
+  list.innerHTML = notes.map(n=>{
+    const d = new Date(n.updated);
+    const date = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const active = n.id===currentId?'active':'';
+    return `<div class="note-item ${active}" onclick="selectNote('${n.id}')">
+      <div class="note-item-title">${n.title||'(无标题)'}</div>
+      <div class="note-item-meta">${date}</div>
+    </div>`;
+  }).join('');
+}
+function newNote(){
+  const id = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+  notes.unshift({id,title:'',body:'',updated:Date.now()});
+  currentId = id;
+  saveNotes();
+  renderNotesList();
+  document.getElementById('note-title').value = '';
+  document.getElementById('note-body').value = '';
+  document.getElementById('note-title').focus();
+}
+function selectNote(id){
+  const n = notes.find(x=>x.id===id);if(!n)return;
+  currentId = id;
+  document.getElementById('note-title').value = n.title;
+  document.getElementById('note-body').value = n.body;
+  renderNotesList();
+}
+function autosave(){
+  if(!currentId)newNote();
+  clearTimeout(saveTimer);
+  document.getElementById('save-status').textContent = '编辑中...';
+  saveTimer = setTimeout(()=>{
+    const n = notes.find(x=>x.id===currentId);if(!n)return;
+    n.title = document.getElementById('note-title').value;
+    n.body = document.getElementById('note-body').value;
+    n.updated = Date.now();
+    notes.sort((a,b)=>b.updated-a.updated);
+    saveNotes();
+    renderNotesList();
+    const t = new Date();
+    document.getElementById('save-status').textContent = `已保存 ${pad(t.getHours())}:${pad(t.getMinutes())}:${pad(t.getSeconds())}`;
+  }, 500);
+}
+function deleteNote(){
+  if(!currentId)return;
+  if(!confirm('确认删除当前笔记？'))return;
+  notes = notes.filter(x=>x.id!==currentId);
+  currentId = null;
+  saveNotes();
+  renderNotesList();
+  document.getElementById('note-title').value = '';
+  document.getElementById('note-body').value = '';
+  document.getElementById('save-status').textContent = '已删除';
+}
+function exportNotes(){
+  const blob = new Blob([JSON.stringify(notes,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `trading-journal-${new Date().toISOString().slice(0,10)}.json`;
+  a.click(); URL.revokeObjectURL(url);
+}
+function importNotes(){document.getElementById('import-file').click()}
+function handleImport(e){
+  const f = e.target.files[0];if(!f)return;
+  const r = new FileReader();
+  r.onload = ev=>{
+    try{
+      const arr = JSON.parse(ev.target.result);
+      if(!Array.isArray(arr))throw 0;
+      if(confirm(`导入 ${arr.length} 条笔记？这会与现有笔记合并。`)){
+        const ids = new Set(notes.map(n=>n.id));
+        arr.forEach(n=>{if(!ids.has(n.id))notes.push(n)});
+        notes.sort((a,b)=>b.updated-a.updated);
+        saveNotes(); renderNotesList();
+      }
+    }catch{alert('文件格式错误')}
+  };
+  r.readAsText(f);
+}
+loadNotes();
+</script>
+</body>
+</html>
